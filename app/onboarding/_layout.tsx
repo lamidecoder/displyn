@@ -1,0 +1,21 @@
+import { Stack } from 'expo-router';
+
+export default function OnboardingLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="name" />
+      <Stack.Screen name="mode" />
+      <Stack.Screen name="tags" />
+      <Stack.Screen name="struggle" />
+      <Stack.Screen name="tone" />
+      <Stack.Screen name="color" />
+      <Stack.Screen name="ready" options={{ gestureEnabled: false }} />
+    </Stack>
+  );
+}
