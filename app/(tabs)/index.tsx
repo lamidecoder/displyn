@@ -15,9 +15,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   View,
 } from 'react-native';
-import { Swipeable, RectButton, PanGestureHandler, State } from 'react-native-gesture-handler';
+import { Swipeable, RectButton, PanGestureHandler, State, TouchableOpacity as GHTouchable } from 'react-native-gesture-handler';
 import { supabase } from '../../lib/supabase';
 import {
   createTask,
@@ -32,6 +33,7 @@ import {
   saveChallengeReflection,
   ChallengeOutcome,
   skipTaskInstance,
+  applyLocalCompletions,
 } from '../../lib/tasks';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { parseTaskFromText, getSmartSuggestions, voiceToTask, generateDailyFocus, DailyFocus, ParsedTask, TaskSuggestion, AIRateLimitError, AIUnavailableError } from '../../lib/ai';
@@ -99,6 +101,7 @@ export default function TodayScreen() {
 
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
+  const [micDenied, setMicDenied] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -163,7 +166,8 @@ export default function TodayScreen() {
         getWeeklyStats(user.id),
         getProfile(user.id),
       ]);
-      setInstances(instanceData || []);
+      const withLocal = await applyLocalCompletions(instanceData || []);
+      setInstances(withLocal);
       setWeeklyStats(stats);
       setDisplayName(profile?.display_name || 'there');
 
@@ -427,15 +431,21 @@ export default function TodayScreen() {
   ];
 
   const handleComplete = async (id: string) => {
+    // Optimistic UI update — instant visual feedback
+    setInstances(prev => prev.map(i =>
+      i.id === id ? { ...i, status: 'completed', completed_at: new Date().toISOString() } : i
+    ));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    toast.success('Task done! ✅', 'Keep the momentum going.');
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       await updateInstanceStatus(id, 'completed');
       await loadToday();
     } catch (e: any) {
-      // Silence backend config errors that don't affect the user experience
-      if (e.message && e.message.includes('service_role_key')) return;
-      if (e.message && e.message.includes('unrecognized configuration')) return;
-      toast.error('Something went wrong', e.message);
+      // Revert only on genuine failure
+      setInstances(prev => prev.map(i =>
+        i.id === id ? { ...i, status: 'pending', completed_at: null } : i
+      ));
+      toast.error('Could not complete task', e.message);
     }
   };
   const handleMiss = async (id: string) => {
@@ -602,9 +612,11 @@ export default function TodayScreen() {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        toast.warning('Permission needed', 'Please allow microphone access to use voice input.');
+        // Show friendly permission prompt
+        setMicDenied(true);
         return;
       }
+      setMicDenied(false);
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
@@ -868,14 +880,37 @@ export default function TodayScreen() {
         {/* Audio mode content */}
         {isAudio && (
           <View style={s.inputCardContent}>
-            {isTranscribing ? (
+            {isTranscribing && (
               <>
                 <Image source={ICONS.nyla} style={{ width: 48, height: 48, marginBottom: 8, backgroundColor: 'transparent' }} resizeMode="contain" />
                 <ActivityIndicator size="small" color={theme.primary} style={{ marginBottom: 8 }} />
                 <Text style={s.voiceLabel}>Nyla is transcribing...</Text>
                 <Text style={s.voiceSub}>Nyla is logging your tasks</Text>
               </>
-            ) : (
+            )}
+            {!isTranscribing && micDenied && (
+              <>
+                <Text style={{ fontSize: 32, marginBottom: 12 }}>🎙️</Text>
+                <Text style={[s.voiceLabel, { color: theme.error }]}>Microphone access needed</Text>
+                <Text style={[s.voiceSub, { marginBottom: 16, textAlign: 'center' }]}>
+                  Displyn needs microphone access to record your tasks. Tap below to enable it in Settings.
+                </Text>
+                <TouchableOpacity
+                  style={[s.actionBtn, s.actionBtnPrimary, { width: '100%' }]}
+                  onPress={async () => {
+                    const { Linking } = require('react-native');
+                    await Linking.openSettings();
+                    setMicDenied(false);
+                  }}
+                >
+                  <Text style={[s.actionBtnText, { color: '#fff' }]}>Open Settings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 10 }} onPress={() => setMicDenied(false)}>
+                  <Text style={[s.voiceSub, { color: theme.primary }]}>Try again</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {!isTranscribing && !micDenied && (
               <>
                 <View style={s.micContainer}>
                   {isRecording && (
@@ -904,7 +939,7 @@ export default function TodayScreen() {
                   {isRecording ? 'Listening...' : 'Tap to speak'}
                 </Text>
                 <Text style={s.voiceSub}>
-                  {isRecording ? 'Tap again when you\'re done' : 'Describe your tasks naturally'}
+                  {isRecording ? "Tap again when you're done" : 'Describe your tasks naturally'}
                 </Text>
               </>
             )}
@@ -973,6 +1008,7 @@ export default function TodayScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadToday(); }} tintColor={theme.primary} />
         }
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* ===== HERO HEADER ===== */}
         <View style={s.header}>
@@ -1069,14 +1105,13 @@ export default function TodayScreen() {
                     </View>
                   </View>
                   <View style={s.priorityActionsRow}>
-                    <TouchableOpacity
-                      style={[s.priorityDoneBtn, { backgroundColor: theme.primary }]}
+                    <Pressable
+                      style={({ pressed }) => [s.priorityDoneBtn, { backgroundColor: theme.primary, opacity: pressed ? 0.7 : 1 }]}
                       onPress={() => handleComplete(inst.id)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
                       <Ionicons name="checkmark" size={16} color="#fff" />
-                    </TouchableOpacity>
+                    </Pressable>
                     <TouchableOpacity style={s.skipBtn} onPress={() => openSkipFlow(inst.id)}>
                       <Ionicons name="close" size={13} color={isDark ? '#44445A' : '#AAAABC'} />
                     </TouchableOpacity>
@@ -1296,59 +1331,62 @@ export default function TodayScreen() {
               : '';
 
             const taskCardContent = (
-              <TouchableOpacity
-                style={[s.taskCard, done && s.taskCardDone, missed && s.taskCardDone]}
-                activeOpacity={isRecurring ? 0.75 : 1}
-                onPress={() => isRecurring && router.push({ pathname: '/task-detail', params: { taskId: inst.task_id } })}
-              >
+              <View style={[s.taskCard, done && s.taskCardDone, missed && s.taskCardDone]}>
                 <View style={[s.taskAccentBar, { backgroundColor: done ? (isDark ? '#2A2A38' : '#E0E0E8') : theme.primary }]} />
-                <View style={[s.taskIconCircle, { backgroundColor: done ? (isDark ? '#1C1C28' : '#F0F0F8') : theme.primaryMuted }]}>
-                  {ti ? <Text style={{ fontSize: 17, opacity: done ? 0.4 : 1 }}>{ti}</Text>
-                      : <View style={[s.taskDotInner, { backgroundColor: done ? (isDark ? '#3A3A50' : '#CCCCDD') : theme.primary }]} />}
-                </View>
-                <View style={{ flex: 1, marginLeft: 12, marginRight: 8 }}>
-                  <Text style={[s.taskCardTitle, done && s.taskCardTitleDone]} numberOfLines={1}>{inst.task?.title}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 8 }}>
-                    {!done && (
-                      <View style={[s.tagPillOutline, { borderColor: theme.primaryBorder }]}>
-                        <Text style={[s.tagPillOutlineText, { color: theme.textSecondary }]}>{tag || 'Untagged'}</Text>
-                      </View>
-                    )}
-                    {isOneTime && inst.task?.deadline && !done && (
-                      <Text style={s.deadlineLabel}>
-                        Due {new Date(inst.task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </Text>
-                    )}
-                    {overdueColor && !done && !missed && (
-                      <TouchableOpacity onPress={() => toast.warning('Overdue', overdueLabel)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={{ fontSize: 11, color: overdueColor, fontWeight: '700' }}>Overdue</Text>
-                      </TouchableOpacity>
-                    )}
+                <TouchableOpacity
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                  activeOpacity={isRecurring ? 0.7 : 1}
+                  onPress={() => isRecurring && router.push({ pathname: '/task-detail', params: { taskId: inst.task_id } })}
+                >
+                  <View style={[s.taskIconCircle, { backgroundColor: done ? (isDark ? '#1C1C28' : '#F0F0F8') : theme.primaryMuted }]}>
+                    {ti ? <Text style={{ fontSize: 17, opacity: done ? 0.4 : 1 }}>{ti}</Text>
+                        : <View style={[s.taskDotInner, { backgroundColor: done ? (isDark ? '#3A3A50' : '#CCCCDD') : theme.primary }]} />}
                   </View>
-                </View>
+                  <View style={{ flex: 1, marginLeft: 12, marginRight: 8 }}>
+                    <Text style={[s.taskCardTitle, done && s.taskCardTitleDone]} numberOfLines={1}>{inst.task?.title}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 8 }}>
+                      {!done && (
+                        <View style={[s.tagPillOutline, { borderColor: theme.primaryBorder }]}>
+                          <Text style={[s.tagPillOutlineText, { color: theme.textSecondary }]}>{tag || 'Untagged'}</Text>
+                        </View>
+                      )}
+                      {isOneTime && inst.task?.deadline && !done && (
+                        <Text style={s.deadlineLabel}>
+                          Due {new Date(inst.task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </Text>
+                      )}
+                      {overdueColor && !done && !missed && (
+                        <Text style={{ fontSize: 11, color: overdueColor, fontWeight: '700' }}>Overdue</Text>
+                      )}
+                    </View>
+                  </View>
+                  {done && (
+                    <View style={s.statusDoneChip}>
+                      <Ionicons name="checkmark-circle" size={18} color={isDark ? '#3A3A50' : '#CCCCDD'} />
+                    </View>
+                  )}
+                  {missed && <Text style={s.statusMissed}>Missed</Text>}
+                  {snoozed && <Text style={s.statusSnoozed}>Snoozed</Text>}
+                </TouchableOpacity>
                 {inst.status === 'pending' && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity
-                      style={[s.doneBtn, { backgroundColor: theme.primary }]}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 4 }}>
+                    <Pressable
+                      style={({ pressed }) => [s.doneBtn, { backgroundColor: theme.primary, opacity: pressed ? 0.7 : 1 }]}
                       onPress={() => handleComplete(inst.id)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
                       <Ionicons name="checkmark" size={15} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.skipBtn} onPress={() => openSkipFlow(inst.id)}>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [s.skipBtn, { opacity: pressed ? 0.7 : 1 }]}
+                      onPress={() => openSkipFlow(inst.id)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    >
                       <Ionicons name="close" size={13} color={isDark ? '#44445A' : '#AAAABC'} />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 )}
-                {done && (
-                  <View style={s.statusDoneChip}>
-                    <Ionicons name="checkmark-circle" size={18} color={isDark ? '#3A3A50' : '#CCCCDD'} />
-                  </View>
-                )}
-                {missed && <Text style={s.statusMissed}>Missed</Text>}
-                {snoozed && <Text style={s.statusSnoozed}>Snoozed</Text>}
-              </TouchableOpacity>
+              </View>
             );
 
             if (isOneTime) {
@@ -1369,7 +1407,6 @@ export default function TodayScreen() {
                 </Swipeable>
               );
             }
-
             return <View key={inst.id}>{taskCardContent}</View>;
           })}
         </View>
@@ -1770,6 +1807,9 @@ export default function TodayScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+
+
 
       <ConfirmSheet
         visible={confirmSheet.visible}

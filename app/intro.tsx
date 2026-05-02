@@ -1,182 +1,156 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  Animated,
   Dimensions,
+  FlatList,
   Image,
-  PanResponder,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 const BRAND = '#7072DD';
-const BG = '#0A0A12';
-const NYLA = require('../assets/icons/nyla-avatar.png');
 
 const SLIDES = [
   {
-    headline: "There's a gap between what you plan and what you do.",
-    subhead: "Most apps track your intentions. Displyn tracks what actually happened.",
+    id: '1',
+    image: require('../assets/images/intro-slide-1.jpg'),
+    headline: 'Most days, intention beats action.',
+    subtext: 'You meant to. You didn\'t. The gap quietly widens.',
+    textPosition: 'top-left',
+    hasCTA: false,
   },
   {
-    headline: "See yourself honestly.",
-    subhead: "Displyn reflects what you're really doing — not what you wish you were. That's where change begins.",
+    id: '2',
+    image: require('../assets/images/intro-slide-2.jpg'),
+    headline: 'What if you saw what you actually do?',
+    subtext: 'Not your plans. Your patterns. The truth your behaviour tells.',
+    textPosition: 'top-left',
+    hasCTA: false,
   },
   {
-    headline: "Meet Nyla.",
-    subhead: "Your honest companion. She notices what you notice, remembers what matters, and tells you the truth — kindly.",
-    cta: true,
+    id: '3',
+    image: require('../assets/images/intro-slide-3.jpg'),
+    headline: 'Meet Nyla.',
+    subtext: 'Your honest companion. She tracks what you do, not what you say, and helps you close the gap.',
+    textPosition: 'top-center',
+    hasCTA: true,
   },
 ];
 
-const INTRO_KEY = 'displyn_intro_seen';
-const AUTO_ADVANCE_MS = 4000;
-
 export default function IntroScreen() {
   const insets = useSafeAreaInsets();
-  const [slide, setSlide] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
 
-  // Slide animation
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    setCurrentIndex(index);
+  };
 
-  // Nyla breathing
-  const breathe = useRef(new Animated.Value(1)).current;
-  const nylaFade = useRef(new Animated.Value(0)).current;
-
-  // Progress bar
-  const progress = useRef(new Animated.Value(0)).current;
-  const progressLoop = useRef<any>(null);
-
-  const goToLogin = useCallback(async () => {
-    await AsyncStorage.setItem(INTRO_KEY, 'true');
-    router.replace('/auth');
-  }, []);
-
-  const goToSlide = useCallback((next: number, direction: 'left' | 'right' = 'left') => {
-    if (next < 0 || next >= SLIDES.length) return;
-    setPaused(true);
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-    ]).start(() => {
-      setSlide(next);
-      Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
-    });
-  }, [fadeAnim]);
-
-  // Auto advance
-  useEffect(() => {
-    if (paused || slide === SLIDES.length - 1) return;
-    const t = setTimeout(() => goToSlide(slide + 1), AUTO_ADVANCE_MS);
-    return () => clearTimeout(t);
-  }, [slide, paused, goToSlide]);
-
-  // Nyla entrance
-  useEffect(() => {
-    Animated.timing(nylaFade, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathe, { toValue: 1.04, duration: 2200, useNativeDriver: true }),
-        Animated.timing(breathe, { toValue: 1.0, duration: 2200, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  // Swipe gesture
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 20 && Math.abs(gs.dy) < 40,
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -40) {
-          setPaused(true);
-          setSlide(prev => Math.min(prev + 1, SLIDES.length - 1));
-        } else if (gs.dx > 40) {
-          setPaused(true);
-          setSlide(prev => Math.max(prev - 1, 0));
-        }
-      },
-    })
-  ).current;
-
-  const handleTap = (e: any) => {
-    const x = e.nativeEvent.locationX;
-    setPaused(true);
-    if (slide === SLIDES.length - 1) return;
-    if (x > width / 2) {
-      setSlide(prev => Math.min(prev + 1, SLIDES.length - 1));
-    } else {
-      setSlide(prev => Math.max(prev - 1, 0));
+  const handleNext = () => {
+    if (currentIndex < SLIDES.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
     }
   };
 
-  const current = SLIDES[slide];
+  const handleStart = async () => {
+    await AsyncStorage.setItem('displyn_intro_seen', 'true');
+    router.replace('/auth');
+  };
+
+  const isLast = currentIndex === SLIDES.length - 1;
 
   return (
-    <View style={s.root} {...panResponder.panHandlers}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Glow */}
-      <View style={s.glowWrap}>
-        <View style={s.glow} />
-      </View>
+      <FlatList
+        ref={flatListRef}
+        data={SLIDES}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={s.slide}>
+            {/* Full screen background image */}
+            <Image source={item.image} style={s.bg} resizeMode="cover" />
+            {/* Dark overlay */}
+            <View style={s.overlay} />
 
-      {/* Skip */}
-      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={goToLogin} style={s.skipBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={s.skipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+            {/* Text content */}
+            <View
+              style={[
+                s.textBlock,
+                { paddingTop: insets.top + 32 },
+                item.textPosition === 'top-center' && s.textCenter,
+              ]}
+            >
+              <Image
+                source={require('../assets/icons/displyn-mark-solid-white.svg')}
+                style={{ width: 32, height: 32, marginBottom: 16 }}
+                resizeMode="contain"
+              />
+              <Text
+                style={[
+                  s.headline,
+                  item.textPosition === 'top-center' && s.headlineCenter,
+                ]}
+              >
+                {item.headline}
+              </Text>
+              <Text
+                style={[
+                  s.subtext,
+                  item.textPosition === 'top-center' && s.subtextCenter,
+                ]}
+              >
+                {item.subtext}
+              </Text>
+            </View>
+          </View>
+        )}
+      />
 
-      {/* Dot indicators */}
-      <View style={s.dots}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              s.dot,
-              i === slide ? s.dotActive : s.dotInactive,
-            ]}
-          />
-        ))}
-      </View>
+      {/* Bottom controls */}
+      <View style={[s.bottom, { paddingBottom: insets.bottom + 24 }]}>
+        {/* Dots */}
+        <View style={s.dots}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                s.dot,
+                i === currentIndex && s.dotActive,
+              ]}
+            />
+          ))}
+        </View>
 
-      {/* Tap zone */}
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handleTap}
-        style={s.tapZone}
-      >
-        {/* Nyla */}
-        <Animated.View style={[s.nylaWrap, { opacity: nylaFade, transform: [{ scale: breathe }] }]}>
-          <Image source={NYLA} style={s.nyla} resizeMode="contain" />
-        </Animated.View>
-
-        {/* Text */}
-        <Animated.View style={[s.textWrap, { opacity: fadeAnim }]}>
-          <Text style={s.headline}>{current.headline}</Text>
-          <Text style={s.subhead}>{current.subhead}</Text>
-        </Animated.View>
-      </TouchableOpacity>
-
-      {/* CTA on last slide */}
-      <View style={[s.bottomArea, { paddingBottom: insets.bottom + 24 }]}>
-        {current.cta ? (
-          <TouchableOpacity style={s.ctaBtn} onPress={goToLogin} activeOpacity={0.85}>
-            <Text style={s.ctaText}>Let's begin</Text>
+        {/* CTA / Next */}
+        {isLast ? (
+          <TouchableOpacity style={s.ctaBtn} onPress={handleStart} activeOpacity={0.85}>
+            <Text style={s.ctaBtnText}>Let's begin</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={s.nextBtn} onPress={() => { setPaused(true); setSlide(s => s + 1); }}>
-            <Text style={s.nextText}>Next</Text>
-          </TouchableOpacity>
+          <View style={s.navRow}>
+            <TouchableOpacity onPress={handleStart}>
+              <Text style={s.skipText}>Skip</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.nextBtn} onPress={handleNext} activeOpacity={0.85}>
+              <Text style={s.nextBtnText}>Next →</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>
@@ -184,91 +158,106 @@ export default function IntroScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-  glowWrap: {
+  root: { flex: 1, backgroundColor: '#080812' },
+  slide: { width, height },
+  bg: { position: 'absolute', top: 0, left: 0, width, height },
+  overlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(6,6,18,0.38)',
+  },
+  textBlock: {
     position: 'absolute',
-    top: height * 0.08,
-    alignSelf: 'center',
-    width: width * 0.7,
-    height: width * 0.7,
+    top: 0, left: 0, right: 0,
+    paddingHorizontal: 28,
   },
-  glow: {
-    width: '100%',
-    height: '100%',
-    borderRadius: width * 0.35,
-    backgroundColor: BRAND,
-    opacity: 0.18,
-  },
-  topBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
+  textCenter: {
     alignItems: 'center',
   },
-  skipBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+  headline: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 38,
+    marginBottom: 12,
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  skipText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
+  headlineCenter: {
+    textAlign: 'center',
+  },
+  subtext: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 22,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  subtextCenter: {
+    textAlign: 'center',
+  },
+  bottom: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 24,
+  },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 16,
+    marginBottom: 20,
   },
-  dot: { height: 4, borderRadius: 2 },
-  dotActive: { width: 24, backgroundColor: BRAND },
-  dotInactive: { width: 8, backgroundColor: 'rgba(255,255,255,0.2)' },
-  tapZone: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
+  dot: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
-  nylaWrap: { alignItems: 'center', marginBottom: 40 },
-  nyla: { width: width * 0.42, height: width * 0.42 },
-  textWrap: { alignItems: 'center' },
-  headline: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    letterSpacing: -0.6,
-    lineHeight: 34,
-    marginBottom: 16,
+  dotActive: {
+    width: 20, backgroundColor: '#fff',
   },
-  subhead: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.55)',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  bottomArea: {
-    paddingHorizontal: 24,
+  navRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  ctaBtn: {
-    width: '100%',
-    height: 56,
+  skipText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  nextBtn: {
     backgroundColor: BRAND,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
     shadowColor: BRAND,
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  ctaText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
-  nextBtn: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+  nextBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  nextText: { color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' },
+  ctaBtn: {
+    backgroundColor: BRAND,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: BRAND,
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 10,
+  },
+  ctaBtnText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
 });

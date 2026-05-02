@@ -6,6 +6,8 @@ import { useTheme } from '../../lib/ThemeContext';
 import { ProgressDots } from './index';
 
 const NYLA = require('../../assets/icons/nyla-avatar.png');
+const BG_MODE = require('../../assets/images/onboarding-bg-3.jpg');
+
 
 const MODES = [
   {
@@ -30,7 +32,10 @@ export default function ModeScreen() {
   const [selected, setSelected] = useState('full_life');
 
   return (
-    <View style={[s.container, { paddingTop: insets.top + 20 }]}>
+    <View style={s.root}>
+      <Image source={BG_MODE} style={s.bgImg} resizeMode="cover" />
+      <View style={s.overlay} />
+      <View style={[s.container, { paddingTop: insets.top + 20 }]}>
       <ProgressDots current={2} theme={theme} />
 
       <View style={s.centerContent}>
@@ -47,7 +52,7 @@ export default function ModeScreen() {
                   s.card,
                   active
                     ? { borderColor: theme.primary, backgroundColor: theme.primaryMuted }
-                    : { borderColor: theme.cardBorder, backgroundColor: theme.cardBg },
+                    : { borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.06)' },
                 ]}
                 activeOpacity={0.7}
                 onPress={() => setSelected(m.key)}
@@ -76,25 +81,29 @@ export default function ModeScreen() {
         </TouchableOpacity>
       </View>
     </View>
+    </View>
   );
 }
 
 const makeStyles = (t: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg, paddingHorizontal: 24 },
+    root: { flex: 1, backgroundColor: '#0A0A12' },
+    bgImg: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0 },
+    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,8,20,0.5)' },
+    container: { flex: 1, paddingHorizontal: 24 },
     centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     nyla: { width: 90, height: 90, marginBottom: 24, backgroundColor: 'transparent' },
     title: {
-      fontSize: 24, fontWeight: '800', color: t.textPrimary,
+      fontSize: 24, fontWeight: '800', color: '#FFFFFF',
       textAlign: 'center', marginBottom: 28,
     },
     cards: { width: '100%', gap: 14 },
     card: {
       width: '100%', padding: 20, borderRadius: 16, borderWidth: 2,
     },
-    cardTitle: { fontSize: 18, fontWeight: '700', color: t.textPrimary, marginBottom: 6 },
-    cardSubtitle: { fontSize: 14, fontWeight: '500', color: t.textSecondary, marginBottom: 4 },
-    cardDetail: { fontSize: 12, color: t.textTertiary, lineHeight: 18 },
+    cardTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 },
+    cardSubtitle: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.75)', marginBottom: 4 },
+    cardDetail: { fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
     btn: { height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     btnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   });

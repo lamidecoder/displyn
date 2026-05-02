@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../lib/ThemeContext';
 
 const NYLA = require('../../assets/icons/nyla-avatar.png');
+const BG_READY = require('../../assets/images/onboarding-bg-2.jpg');
+
 
 export default function ReadyScreen() {
   const { theme } = useTheme();
@@ -65,7 +67,10 @@ export default function ReadyScreen() {
   };
 
   return (
-    <View style={[s.container, { paddingTop: insets.top + 20 }]}>
+    <View style={s.root}>
+      <Image source={BG_READY} style={s.bgImg} resizeMode="cover" />
+      <View style={s.overlay} />
+      <View style={[s.container, { paddingTop: insets.top + 20 }]}>
       <View style={s.centerContent}>
         <Image source={NYLA} style={s.nyla} resizeMode="contain" />
         <Text style={s.title}>Alright, {displayName}.</Text>
@@ -89,20 +94,24 @@ export default function ReadyScreen() {
         </TouchableOpacity>
       </View>
     </View>
+    </View>
   );
 }
 
 const makeStyles = (t: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg, paddingHorizontal: 24 },
+    root: { flex: 1, backgroundColor: '#0A0A12' },
+    bgImg: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0 },
+    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,8,20,0.5)' },
+    container: { flex: 1, paddingHorizontal: 24 },
     centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     nyla: { width: 140, height: 140, marginBottom: 32, backgroundColor: 'transparent' },
     title: {
-      fontSize: 28, fontWeight: '800', color: t.textPrimary,
+      fontSize: 28, fontWeight: '800', color: '#FFFFFF',
       textAlign: 'center', marginBottom: 12,
     },
     subtitle: {
-      fontSize: 16, color: t.textSecondary, textAlign: 'center',
+      fontSize: 16, color: 'rgba(255,255,255,0.75)', textAlign: 'center',
       lineHeight: 24, paddingHorizontal: 20,
     },
     btn: { height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

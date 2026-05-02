@@ -1,10 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../lib/ThemeContext';
 import { ACCENT_PRESETS, getAccentPreset } from '../../lib/accentColors';
 import { ProgressDots } from './index';
+
+const BG_COLOR = require('../../assets/images/onboarding-bg-1.jpg');
+
 
 export default function ColorScreen() {
   const { theme, accentKey, setAccentColor, isDark } = useTheme();
@@ -13,7 +16,10 @@ export default function ColorScreen() {
   const s = makeStyles(theme);
 
   return (
-    <View style={[s.container, { paddingTop: insets.top + 20 }]}>
+    <View style={s.root}>
+      <Image source={BG_COLOR} style={s.bgImg} resizeMode="cover" />
+      <View style={s.overlay} />
+      <View style={[s.container, { paddingTop: insets.top + 20 }]}>
       <ProgressDots current={6} theme={theme} />
 
       <View style={s.centerContent}>
@@ -70,19 +76,23 @@ export default function ColorScreen() {
         </TouchableOpacity>
       </View>
     </View>
+    </View>
   );
 }
 
 const makeStyles = (t: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg, paddingHorizontal: 24 },
+    root: { flex: 1, backgroundColor: '#0A0A12' },
+    bgImg: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0 },
+    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,8,20,0.5)' },
+    container: { flex: 1, paddingHorizontal: 24 },
     centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     title: {
-      fontSize: 24, fontWeight: '800', color: t.textPrimary,
+      fontSize: 24, fontWeight: '800', color: '#FFFFFF',
       textAlign: 'center', marginBottom: 10,
     },
     subtitle: {
-      fontSize: 15, color: t.textSecondary, textAlign: 'center', marginBottom: 32,
+      fontSize: 15, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginBottom: 32,
     },
     grid: {
       flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center',

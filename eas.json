@@ -40,9 +40,9 @@
         "track": "production"
       },
       "ios": {
-        "appleId": "your-apple-id@email.com",
-        "ascAppId": "your-app-store-connect-app-id",
-        "appleTeamId": "your-team-id"
+        "appleId": "danielorobode@gmail.com",
+        "ascAppId": "6764621832",
+        "appleTeamId": "D7J2X8RKXR"
       }
     }
   }

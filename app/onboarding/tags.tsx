@@ -1,10 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../lib/ThemeContext';
 import { TAG_COLORS, TAG_ICONS, TASK_TAGS, TaskTag } from '../../lib/types';
 import { ProgressDots } from './index';
+
+const BG_TAGS = require('../../assets/images/onboarding-bg-1.jpg');
+
 
 const MAX_TAGS = 3;
 
@@ -28,7 +31,10 @@ export default function TagsScreen() {
   const canContinue = selected.length >= 1;
 
   return (
-    <View style={[s.container, { paddingTop: insets.top + 20 }]}>
+    <View style={s.root}>
+      <Image source={BG_TAGS} style={s.bgImg} resizeMode="cover" />
+      <View style={s.overlay} />
+      <View style={[s.container, { paddingTop: insets.top + 20 }]}>
       <ProgressDots current={3} theme={theme} />
 
       <Text style={s.title}>
@@ -57,7 +63,7 @@ export default function TagsScreen() {
                 s.chip,
                 active
                   ? { borderColor: color, backgroundColor: color + '18' }
-                  : { borderColor: theme.cardBorder, backgroundColor: theme.cardBg },
+                  : { borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.06)' },
               ]}
               activeOpacity={0.7}
               onPress={() => toggle(tag)}
@@ -85,22 +91,26 @@ export default function TagsScreen() {
         </TouchableOpacity>
       </View>
     </View>
+    </View>
   );
 }
 
 const makeStyles = (t: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg, paddingHorizontal: 24 },
+    root: { flex: 1, backgroundColor: '#0A0A12' },
+    bgImg: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0 },
+    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,8,20,0.5)' },
+    container: { flex: 1, paddingHorizontal: 24 },
     title: {
-      fontSize: 24, fontWeight: '800', color: t.textPrimary,
+      fontSize: 24, fontWeight: '800', color: '#FFFFFF',
       textAlign: 'center', marginBottom: 10,
     },
     subtitle: {
-      fontSize: 14, color: t.textSecondary, textAlign: 'center',
+      fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center',
       lineHeight: 20, marginBottom: 8, paddingHorizontal: 10,
     },
     counter: {
-      fontSize: 13, fontWeight: '600', color: t.textTertiary,
+      fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)',
       textAlign: 'center', marginBottom: 16,
     },
     scroll: { flex: 1 },
@@ -114,7 +124,7 @@ const makeStyles = (t: any) =>
       borderRadius: 14, borderWidth: 1.5,
     },
     chipIcon: { fontSize: 18 },
-    chipText: { fontSize: 14, fontWeight: '500', color: t.textPrimary },
+    chipText: { fontSize: 14, fontWeight: '500', color: '#FFFFFF' },
     btn: { height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     btnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   });

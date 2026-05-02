@@ -9,6 +9,8 @@ import { useTheme } from '../../lib/ThemeContext';
 import { ProgressDots } from './index';
 
 const NYLA = require('../../assets/icons/nyla-avatar.png');
+const BG_NAME = require('../../assets/images/onboarding-bg-2.jpg');
+
 
 export default function NameScreen() {
   const { theme } = useTheme();
@@ -19,7 +21,10 @@ export default function NameScreen() {
   const canContinue = name.trim().length > 0;
 
   return (
-    <KeyboardAvoidingView
+    <View style={s.root}>
+      <Image source={BG_NAME} style={s.bgImg} resizeMode="cover" />
+      <View style={s.overlay} />
+      <KeyboardAvoidingView
       style={[s.container, { paddingTop: insets.top + 20 }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -53,22 +58,26 @@ export default function NameScreen() {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const makeStyles = (t: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg, paddingHorizontal: 24 },
+    root: { flex: 1, backgroundColor: '#0A0A12' },
+    bgImg: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0 },
+    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,8,20,0.5)' },
+    container: { flex: 1, paddingHorizontal: 24 },
     centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     nyla: { width: 90, height: 90, marginBottom: 24, backgroundColor: 'transparent' },
     title: {
-      fontSize: 26, fontWeight: '800', color: t.textPrimary,
+      fontSize: 26, fontWeight: '800', color: '#FFFFFF',
       textAlign: 'center', marginBottom: 24,
     },
     input: {
       width: '100%', height: 56, borderRadius: 14,
-      backgroundColor: t.inputBg, borderWidth: 1, borderColor: t.inputBorder,
-      paddingHorizontal: 20, fontSize: 18, color: t.textPrimary,
+      backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+      paddingHorizontal: 20, fontSize: 18, color: '#FFFFFF',
       textAlign: 'center', fontWeight: '600',
     },
     btn: {

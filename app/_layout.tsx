@@ -5,7 +5,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '../lib/supabase';
 import { ThemeProvider, useTheme } from '../lib/ThemeContext';
 import { ProfileProvider } from '../lib/ProfileContext';
-import { registerForPushNotifications } from '../lib/notifications';
+import { registerForPushNotifications, schedulePersonalisedNotifications } from '../lib/notifications';
+import { markYesterdayTasksMissed } from '../lib/tasks';
 import { ToastProvider } from '../components/Toast';
 
 function AppWithToast() {
@@ -21,7 +22,6 @@ function AppWithToast() {
 
     const init = async () => {
       try {
-        // Show intro on first ever launch
         const introSeen = await AsyncStorage.getItem('displyn_intro_seen');
         const { data: { session } } = await supabase.auth.getSession();
 
@@ -44,6 +44,10 @@ function AppWithToast() {
         }
 
         registerForPushNotifications().catch(() => {});
+        if (session?.user?.id) {
+          markYesterdayTasksMissed(session.user.id).catch(() => {});
+          schedulePersonalisedNotifications(session.user.id).catch(() => {});
+        }
       } catch (e) {
         router.replace('/auth');
       }
@@ -73,6 +77,10 @@ function AppWithToast() {
           }
 
           registerForPushNotifications().catch(() => {});
+        if (session?.user?.id) {
+          markYesterdayTasksMissed(session.user.id).catch(() => {});
+          schedulePersonalisedNotifications(session.user.id).catch(() => {});
+        } // silenced in Expo Go
         }
       }
     );

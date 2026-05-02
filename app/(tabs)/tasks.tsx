@@ -32,6 +32,8 @@ import {
     getTaskInstancesByRange,
     getWeeklyInstancesForTask,
     skipTaskInstance,
+    applyLocalCompletions,
+    saveLocalCompletion,
 } from '../../lib/tasks';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../lib/ThemeContext';
@@ -659,7 +661,8 @@ export default function TasksScreen() {
         getChallengeTasksWithStats(user.id),
         getProfile(user.id),
       ]);
-      setInstances(instanceData || []);
+      const withLocal = await applyLocalCompletions(instanceData || []);
+      setInstances(withLocal);
       setRecurringTasks(recurringData || []);
       setChallengeTasks(challengeData || []);
       setDisplayName(profile?.display_name || '');
