@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.displyn.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "requireFullScreen": true,
       "infoPlist": {
         "UIBackgroundModes": [

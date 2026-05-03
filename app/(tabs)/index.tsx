@@ -34,6 +34,7 @@ import {
   ChallengeOutcome,
   skipTaskInstance,
   applyLocalCompletions,
+  saveLocalCompletion,
 } from '../../lib/tasks';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { parseTaskFromText, getSmartSuggestions, voiceToTask, generateDailyFocus, DailyFocus, ParsedTask, TaskSuggestion, AIRateLimitError, AIUnavailableError } from '../../lib/ai';
@@ -437,16 +438,11 @@ export default function TodayScreen() {
     ));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     toast.success('Task done! ✅', 'Keep the momentum going.');
-    try {
-      await updateInstanceStatus(id, 'completed');
-      await loadToday();
-    } catch (e: any) {
-      // Revert only on genuine failure
-      setInstances(prev => prev.map(i =>
-        i.id === id ? { ...i, status: 'pending', completed_at: null } : i
-      ));
-      toast.error('Could not complete task', e.message);
-    }
+    // Save to AsyncStorage immediately — persists even if DB fails
+    const { saveLocalCompletion } = await import('../../lib/tasks');
+    await saveLocalCompletion(id, 'completed');
+    // Fire and forget DB update — never revert
+    updateInstanceStatus(id, 'completed').catch(() => {});
   };
   const handleMiss = async (id: string) => {
     try { await updateInstanceStatus(id, 'missed'); await loadToday(); }
@@ -610,11 +606,15 @@ export default function TodayScreen() {
 
   const startRecording = async () => {
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
-        // Show friendly permission prompt
-        setMicDenied(true);
-        return;
+      const { granted, canAskAgain } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        if (canAskAgain) {
+          // Ask again — shows system dialog
+          const retry = await Audio.requestPermissionsAsync();
+          if (!retry.granted) { setMicDenied(true); return; }
+        } else {
+          setMicDenied(true); return;
+        }
       }
       setMicDenied(false);
 
@@ -631,7 +631,9 @@ export default function TodayScreen() {
       startPulse();
     } catch (e: any) {
       console.error('Failed to start recording:', e.message);
-      toast.error('Oops', 'Could not start recording. Please try again.');
+      // Silent fail on first tap — don't show scary error
+      setIsRecording(false);
+      stopPulse();
     }
   };
 
@@ -1025,12 +1027,7 @@ export default function TodayScreen() {
             </PressableScale>
           </View>
           <View style={s.greetingRow}>
-            <View style={s.progressBarTrackWrap}>
-              <View style={[s.progressBarFillWrap, {
-                width: totalCount > 0 ? `${Math.round((completedCount / totalCount) * 100)}%` : '0%'
-              }]} />
-            </View>
-            <Text style={s.headerTaskCount}>{completedCount}/{totalCount}</Text>
+            <Text style={s.headerTaskCount}>{completedCount}/{totalCount} tasks done</Text>
           </View>
         </View>
 
@@ -1352,11 +1349,11 @@ export default function TodayScreen() {
                       )}
                       {isOneTime && inst.task?.deadline && !done && (
                         <Text style={s.deadlineLabel}>
-                          Due {new Date(inst.task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {overdueDays > 0
+                            ? `${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`
+                            : `Due ${new Date(inst.task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                          }
                         </Text>
-                      )}
-                      {overdueColor && !done && !missed && (
-                        <Text style={{ fontSize: 11, color: overdueColor, fontWeight: '700' }}>Overdue</Text>
                       )}
                     </View>
                   </View>
