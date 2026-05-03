@@ -59,7 +59,7 @@ async function buildLiveNotificationMessage(
     const messages: Record<string, Record<string, ToneMap>> = {
       morning: {
         none: {
-          soft: `You have a clean slate today, ${name}. Let's make it count 💪`,
+          soft: `${name}, Nyla has been watching. Your streak won't protect itself today 👀`,
           strict: `No tasks yet, ${name}. A focused day starts with intention.`,
           savage: `Nothing planned? Don't waste the day, ${name}.`,
           comedic: `Wow ${name}, no tasks? Are you on holiday? 😄`,
@@ -75,7 +75,7 @@ async function buildLiveNotificationMessage(
       },
       evening: {
         none: {
-          soft: `All done today, ${name}! All tasks done today 🎉`,
+          soft: `${name}, no tasks today? Nyla noticed. Open Displyn and set up tomorrow now 🌙`,
           strict: `All tasks done, ${name}. Maintain this standard.`,
           savage: `All done, ${name}. Set yourself up for tomorrow.`,
           comedic: `Zero tasks pending?! Who ARE you? 😂`,
@@ -91,7 +91,7 @@ async function buildLiveNotificationMessage(
       },
       streak: {
         none: {
-          soft: `Streak protected, ${name}! Rest well tonight 🌙`,
+          soft: `${name}, you haven't added any tasks today. Nyla can't help if there's nothing to track. Open Displyn 👀`,
           strict: `Streak protected, ${name}. Good discipline.`,
           savage: `Clean day, ${name}. Don't slack tomorrow.`,
           comedic: `Nothing to do! Enjoy the rare peace, ${name} 😌`,

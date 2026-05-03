@@ -280,43 +280,18 @@ export async function getTodayInstances(userId: string, date: string) {
     .order('created_at', { ascending: true });
   if (todayError) throw todayError;
 
-  // Also fetch carry-forward: pending one-time task instances from previous days
-  const { data: carryForward, error: cfError } = await supabase
-    .from('task_instances')
-    .select('*, task:tasks(*)')
-    .eq('user_id', userId)
-    .eq('status', 'pending')
-    .lt('scheduled_date', date);
-  if (cfError) throw cfError;
+  // Mark all previous pending instances as missed — clean slate every day
+  try {
+    await supabase
+      .from('task_instances')
+      .update({ status: 'missed', updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .lt('scheduled_date', date);
+  } catch (_) {}
 
-  // Filter carry-forward to only one-time tasks
-  const oneTimeCarryForward = (carryForward || []).filter(
-    (inst: any) => inst.task?.task_type === 'one_time'
-  );
-
-  // Calculate overdue_days dynamically for carry-forward instances
-  const todayDate = new Date(date);
-  for (const inst of oneTimeCarryForward) {
-    const refDate = inst.task?.deadline
-      ? new Date(inst.task.deadline)
-      : new Date(inst.scheduled_date);
-    const diff = Math.floor(
-      (todayDate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    inst.overdue_days = diff > 0 ? diff : 0;
-    inst._isCarryForward = true;
-  }
-
-  // Deduplicate: if a one-time task has both a carry-forward instance AND
-  // a today instance (from the old bug), keep the carry-forward one only
-  const carryForwardTaskIds = new Set(oneTimeCarryForward.map((i: any) => i.task_id));
-  const dedupedToday = (todayData || []).filter(
-    (inst: any) => !carryForwardTaskIds.has(inst.task_id)
-  );
-
-  // Merge: carry-forward first (they're overdue and important), then today's instances
-  const combined = [...oneTimeCarryForward, ...dedupedToday];
-  return combined;
+  // Return only today's instances
+  return todayData || [];
 }
 
 export async function generateTodayInstances(userId: string, date: string) {
