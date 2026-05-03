@@ -44,10 +44,8 @@ function AppWithToast() {
         }
 
         registerForPushNotifications().catch(() => {});
-        if (session?.user?.id) {
-          markYesterdayTasksMissed(session.user.id).catch(() => {});
-          schedulePersonalisedNotifications(session.user.id).catch(() => {});
-        }
+        markYesterdayTasksMissed(session.user.id).catch(() => {});
+        schedulePersonalisedNotifications(session.user.id).catch(() => {});
       } catch (e) {
         router.replace('/auth');
       }
@@ -77,10 +75,8 @@ function AppWithToast() {
           }
 
           registerForPushNotifications().catch(() => {});
-        if (session?.user?.id) {
           markYesterdayTasksMissed(session.user.id).catch(() => {});
           schedulePersonalisedNotifications(session.user.id).catch(() => {});
-        } // silenced in Expo Go
         }
       }
     );
@@ -98,7 +94,8 @@ function AppWithToast() {
         <Stack.Screen name="edit-task" />
         <Stack.Screen name="task-detail" />
         <Stack.Screen name="modal" />
-            <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="intro" />
       </Stack>
     </ToastProvider>
   );
