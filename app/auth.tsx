@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
@@ -133,7 +134,11 @@ export default function AuthScreen() {
     try {
       setGoogleLoading(true);
 
-      const redirectTo = makeRedirectUri({ path: 'auth/callback' });
+      // Auto-detect: use exp:// in Expo Go, com.displyn.app:// in production
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const redirectTo = isExpoGo
+        ? makeRedirectUri({ path: '--/auth/callback' })
+        : makeRedirectUri({ scheme: 'com.displyn.app', path: 'auth/callback' });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
