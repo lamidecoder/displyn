@@ -1,4 +1,13 @@
 import { supabase } from './supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+async function getLocalCompletedIds(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem('displyn_local_completions');
+    if (!raw) return new Set();
+    return new Set(Object.keys(JSON.parse(raw)));
+  } catch { return new Set(); }
+}
 import { TAG_COLORS, TAG_ICONS, TASK_TAGS, TaskTag } from './types';
 
 // ============ ANALYTICS DATA ============
@@ -109,10 +118,14 @@ export async function getCompletionRate(userId: string, days: number) {
 
   if (!data || data.length === 0) return { started: 0, done: 0, missed: 0, due: 0, rate: 0 };
 
-  const done = data.filter((i) => i.status === 'completed').length;
-  const missed = data.filter((i) => i.status === 'missed').length;
-  const pending = data.filter((i) => i.status === 'pending').length;
-  const total = data.length;
+  const localIds = await getLocalCompletedIds();
+  const enriched = data.map((i: any) => ({
+    ...i, status: localIds.has(i.id) ? 'completed' : i.status,
+  }));
+  const done = enriched.filter((i: any) => i.status === 'completed').length;
+  const missed = enriched.filter((i: any) => i.status === 'missed').length;
+  const pending = enriched.filter((i: any) => i.status === 'pending').length;
+  const total = enriched.length;
 
   return {
     started: total,
@@ -471,7 +484,7 @@ export async function getNeglectedAreas(
       completed: t.completed,
       total: t.total,
       description: t.total === 0
-        ? 'Nothing tracked yet — keep going and it will show up here.'
+        ? 'Nothing tracked yet ï¿½ keep going and it will show up here.'
         : `${t.completed} completed Â· ${t.total - t.completed} missed`,
     }));
 }

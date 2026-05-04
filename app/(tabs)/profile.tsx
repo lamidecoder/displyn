@@ -23,6 +23,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { getProfile } from '../../lib/tasks';
+import { schedulePersonalisedNotifications } from '../../lib/notifications';
 import { getStreak } from '../../lib/analytics';
 import { BADGES, BadgeDef, getEarnedBadges, getHighestBadge, getNextBadge, checkAndAwardBadges } from '../../lib/badges';
 import { useTheme } from '../../lib/ThemeContext';
@@ -213,6 +214,7 @@ export default function ProfileScreen() {
       setNotificationTone(tone);
       setToneModal(false);
       refreshProfile();
+      schedulePersonalisedNotifications(user.id).catch(() => {});
     } catch (e: any) {
       toast.error('Something went wrong', e.message);
     }

@@ -24,13 +24,23 @@ async function buildLiveNotificationMessage(
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const [profileRes, instancesRes] = await Promise.all([
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const [profileRes, instancesRes, missedRes] = await Promise.all([
       supabase.from('profiles').select('display_name, notification_tone').eq('id', userId).single(),
       supabase.from('task_instances')
         .select('id, status, task:tasks(title)')
         .eq('user_id', userId)
         .eq('scheduled_date', today),
+      supabase.from('task_instances')
+        .select('id, task:tasks(title)')
+        .eq('user_id', userId)
+        .eq('status', 'missed')
+        .eq('scheduled_date', yesterdayStr),
     ]);
+    const missedTitles = (missedRes.data || []).slice(0, 2).map((i: any) => i.task?.title).filter(Boolean);
+    const missedRef = missedTitles.length > 0 ? ` You missed ${missedTitles.join(' and ')} yesterday.` : '';
 
     const name = profileRes.data?.display_name?.split(' ')[0] || 'there';
     const tone = profileRes.data?.notification_tone || 'soft_coach';
@@ -59,14 +69,14 @@ async function buildLiveNotificationMessage(
     const messages: Record<string, Record<string, ToneMap>> = {
       morning: {
         none: {
-          soft: `${name}, Nyla has been watching. Your streak won't protect itself today 👀`,
+          soft: `${name}, Nyla has been watching.${missedRef} Your streak won't protect itself today 👀`,
           strict: `No tasks yet, ${name}. A focused day starts with intention.`,
           savage: `Nothing planned? Don't waste the day, ${name}.`,
           comedic: `Wow ${name}, no tasks? Are you on holiday? 😄`,
           silent: `Today's slate is clear.`,
         },
         some: {
-          soft: `You have ${count} task${count > 1 ? 's' : ''} today${taskRef}. You can do this.`,
+          soft: `${name},${missedRef} You have ${count} task${count > 1 ? 's' : ''} today${taskRef}. You can do this.`,
           strict: `${count} task${count > 1 ? 's' : ''} waiting${taskRef}. Let's get through them, ${name}.`,
           savage: `${count} tasks. Time to get moving${taskRef}.`,
           comedic: `${count} tasks on deck${taskRef}. Time to be the legend you are, ${name} 💪`,

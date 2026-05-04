@@ -83,7 +83,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -97,6 +97,17 @@ export default function AuthScreen() {
           },
         });
         if (error) throw error;
+        if (!signUpData.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          if (signInError) {
+            toast.success('Account created!', 'Check your email to confirm then sign in.');
+            setIsSignUp(false);
+            return;
+          }
+        }
         toast.success('Welcome to Displyn!', 'Your account is ready.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({

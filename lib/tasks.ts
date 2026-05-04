@@ -270,6 +270,16 @@ export async function archiveTask(taskId: string) {
 // ============ TODAY INSTANCES ============
 
 export async function getTodayInstances(userId: string, date: string) {
+  // Auto-mark any pending instances from previous days as missed
+  try {
+    await supabase
+      .from('task_instances')
+      .update({ status: 'missed', updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .lt('scheduled_date', date);
+  } catch (_) {}
+
   // Fetch today's scheduled instances
   const { data: todayData, error: todayError } = await supabase
     .from('task_instances')
@@ -435,31 +445,15 @@ export async function assignPriorities(userId: string, date: string) {
     .eq('scheduled_date', date)
     .eq('status', 'pending');
 
-  // Also get carry-forward pending one-time instances from past days
-  const { data: carryForwardInstances } = await supabase
+  // Mark yesterday pending as missed — no carry-forward
+  await supabase
     .from('task_instances')
-    .select('*, task:tasks(*)')
+    .update({ status: 'missed', updated_at: new Date().toISOString() })
     .eq('user_id', userId)
     .eq('status', 'pending')
     .lt('scheduled_date', date);
 
-  const carryForwardOneTime = (carryForwardInstances || []).filter(
-    (i: any) => i.task?.task_type === 'one_time'
-  );
-
-  // Dynamically compute overdue_days for carry-forward instances
-  const todayDate = new Date(date);
-  for (const inst of carryForwardOneTime) {
-    const refDate = inst.task?.deadline
-      ? new Date(inst.task.deadline)
-      : new Date(inst.scheduled_date);
-    const diff = Math.floor(
-      (todayDate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    inst.overdue_days = diff > 0 ? diff : 0;
-  }
-
-  const allInstances = [...carryForwardOneTime, ...(todayInstances || [])];
+  const allInstances = todayInstances || [];
   if (allInstances.length === 0) return;
 
   // Sort by priority rules:
@@ -1038,7 +1032,7 @@ export async function getWeeklyStats(userId: string) {
 
   const { data } = await supabase
     .from('task_instances')
-    .select('status, scheduled_date')
+    .select('id, status, scheduled_date')
     .eq('user_id', userId)
     .gte('scheduled_date', weekAgo.toISOString().split('T')[0])
     .lte('scheduled_date', today.toISOString().split('T')[0]);
@@ -1047,8 +1041,15 @@ export async function getWeeklyStats(userId: string) {
     return { rate: 0, completed: 0, missed: 0, total: 0, dailyData: [] };
   }
 
-  const completed = data.filter((i) => i.status === 'completed').length;
-  const missed = data.filter((i) => i.status === 'missed').length;
+  // Apply AsyncStorage overlay for accurate momentum bars
+  const local = await getLocalCompletions();
+  const enriched = data.map((inst: any) => {
+    const override = local[inst.id];
+    return override ? { ...inst, status: override.status } : inst;
+  });
+
+  const completed = enriched.filter((i: any) => i.status === 'completed').length;
+  const missed = enriched.filter((i: any) => i.status === 'missed').length;
 
   // Build daily completion data for momentum chart
   const dailyMap = new Map<string, { total: number; completed: number }>();
@@ -1059,7 +1060,7 @@ export async function getWeeklyStats(userId: string) {
     dailyMap.set(key, { total: 0, completed: 0 });
   }
 
-  data.forEach((instance) => {
+  enriched.forEach((instance: any) => {
     const day = dailyMap.get(instance.scheduled_date);
     if (day) {
       day.total++;
@@ -1074,10 +1075,10 @@ export async function getWeeklyStats(userId: string) {
   }));
 
   return {
-    rate: Math.round((completed / data.length) * 100),
+    rate: enriched.length > 0 ? Math.round((completed / enriched.length) * 100) : 0,
     completed,
     missed,
-    total: data.length,
+    total: enriched.length,
     dailyData,
   };
 }
