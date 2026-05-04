@@ -19,17 +19,27 @@ import { TAG_COLORS, TAG_ICONS, TASK_TAGS, TaskTag } from './types';
 export async function getStreak(userId: string): Promise<number> {
   const { data, error } = await supabase
     .from('task_instances')
-    .select('completed_at')
+    .select('id, scheduled_date, completed_at, status')
     .eq('user_id', userId)
     .eq('status', 'completed')
     .not('completed_at', 'is', null);
   if (error || !data || data.length === 0) return 0;
 
   // Build a set of dates the user actually tapped "Done" (by completed_at date)
+  const localIdsStreak = await getLocalCompletedIds();
+  const streakEnriched = (data || []).map((i: any) => ({
+    ...i,
+    status: localIdsStreak.has(i.id) ? 'completed' : i.status,
+    completed_at: localIdsStreak.has(i.id) && !i.completed_at
+      ? new Date(i.scheduled_date + 'T12:00:00').toISOString()
+      : i.completed_at,
+  }));
+
   const completedDates = new Set<string>();
-  data.forEach((inst: any) => {
-    if (inst.completed_at) {
-      completedDates.add(inst.completed_at.split('T')[0]);
+  streakEnriched.forEach((inst: any) => {
+    if (inst.status === 'completed') {
+      const d = inst.completed_at ? inst.completed_at.split('T')[0] : inst.scheduled_date;
+      if (d) completedDates.add(d);
     }
   });
 
@@ -78,13 +88,17 @@ export async function getWeekDayStatus(userId: string) {
 
   const { data } = await supabase
     .from('task_instances')
-    .select('scheduled_date, status')
+    .select('id, scheduled_date, status')
     .eq('user_id', userId)
     .gte('scheduled_date', dates[0])
     .lte('scheduled_date', dates[6]);
 
+  const localIdsWD = await getLocalCompletedIds();
+  const wdEnriched = (data || []).map((i: any) => ({
+    ...i, status: localIdsWD.has(i.id) ? 'completed' : i.status,
+  }));
   const completedSet = new Set<string>();
-  (data || []).forEach((inst) => {
+  wdEnriched.forEach((inst: any) => {
     if (inst.status === 'completed') completedSet.add(inst.scheduled_date);
   });
 
@@ -111,7 +125,7 @@ export async function getCompletionRate(userId: string, days: number) {
 
   const { data } = await supabase
     .from('task_instances')
-    .select('status')
+    .select('id, status')
     .eq('user_id', userId)
     .gte('scheduled_date', startDate.toISOString().split('T')[0])
     .lte('scheduled_date', today.toISOString().split('T')[0]);
@@ -165,12 +179,15 @@ export async function getComparisonData(userId: string) {
 
   const { data } = await supabase
     .from('task_instances')
-    .select('scheduled_date, status')
+    .select('id, scheduled_date, status')
     .eq('user_id', userId)
     .gte('scheduled_date', rangeStart.toISOString().split('T')[0])
     .lte('scheduled_date', todayStr);
 
-  const instances = data || [];
+  const localIdsMT = await getLocalCompletedIds();
+  const instances = (data || []).map((i: any) => ({
+    ...i, status: localIdsMT.has(i.id) ? 'completed' : i.status,
+  }));
 
   const calcRate = (items: typeof instances) => {
     if (items.length === 0) return 0;
@@ -213,12 +230,15 @@ export async function getMonthlyTrend(userId: string, filter: '7d' | '30d' | '90
 
   const { data } = await supabase
     .from('task_instances')
-    .select('scheduled_date, status')
+    .select('id, scheduled_date, status')
     .eq('user_id', userId)
     .gte('scheduled_date', startDate.toISOString().split('T')[0])
     .lte('scheduled_date', today.toISOString().split('T')[0]);
 
-  const instances = data || [];
+  const localIdsMT = await getLocalCompletedIds();
+  const instances = (data || []).map((i: any) => ({
+    ...i, status: localIdsMT.has(i.id) ? 'completed' : i.status,
+  }));
 
   if (filter === 'year') {
     // Group by month — full Jan-Dec
@@ -300,12 +320,20 @@ export async function getTagBreakdown(userId: string, days: number) {
 
   const { data } = await supabase
     .from('task_instances')
-    .select('status, task:tasks(tags)')
+    .select('id, status, task:tasks(tags)')
     .eq('user_id', userId)
     .gte('scheduled_date', startDate.toISOString().split('T')[0])
     .lte('scheduled_date', today.toISOString().split('T')[0]);
 
-  const instances = data || [];
+  const localIdsMT = await getLocalCompletedIds();
+  const instances = (data || []).map((i: any) => ({
+    ...i, status: localIdsMT.has(i.id) ? 'completed' : i.status,
+  }));
+
+  const localIdsTB = await getLocalCompletedIds();
+  const tbEnriched = (data || []).map((i: any) => ({
+    ...i, status: localIdsTB.has(i.id) ? 'completed' : i.status,
+  }));
 
   // Count completed per tag
   const tagCounts = new Map<string, { completed: number; total: number }>();
@@ -370,12 +398,21 @@ export async function getProductivityHeatmap(
 
   const { data } = await supabase
     .from('task_instances')
-    .select('completed_at')
+    .select('id, scheduled_date, completed_at, status')
     .eq('user_id', userId)
-    .eq('status', 'completed')
-    .not('completed_at', 'is', null)
     .gte('scheduled_date', startDate.toISOString().split('T')[0])
     .lte('scheduled_date', today.toISOString().split('T')[0]);
+
+  const localIdsHP = await getLocalCompletedIds();
+  const hpData = (data || [])
+    .map((i: any) => ({
+      ...i,
+      status: localIdsHP.has(i.id) ? 'completed' : i.status,
+      completed_at: localIdsHP.has(i.id) && !i.completed_at
+        ? new Date(i.scheduled_date + 'T12:00:00').toISOString()
+        : i.completed_at,
+    }))
+    .filter((i: any) => i.status === 'completed' && i.completed_at);
 
   const timeSlots = ['12a-4a', '4a-8a', '8a-12p', '12p-4p', '4p-8p', '8p-12a'];
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -431,10 +468,8 @@ export async function getPeakTimeOfDay(userId: string, days: number) {
 
   const { data } = await supabase
     .from('task_instances')
-    .select('completed_at')
+    .select('id, scheduled_date, completed_at, status')
     .eq('user_id', userId)
-    .eq('status', 'completed')
-    .not('completed_at', 'is', null)
     .gte('scheduled_date', startDate.toISOString().split('T')[0])
     .lte('scheduled_date', today.toISOString().split('T')[0]);
 

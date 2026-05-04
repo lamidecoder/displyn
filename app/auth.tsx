@@ -130,10 +130,17 @@ export default function AuthScreen() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const resetRedirect = isExpoGo
+        ? makeRedirectUri({ path: '--/auth/reset-password' })
+        : 'com.displyn.app://reset-password';
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: resetRedirect,
+      });
       if (error) throw error;
       setForgotSent(true);
-      toast.success('Email sent!', 'Check your inbox for the reset link.');
+      toast.success('Email sent by Nyla', 'Check your inbox for a link from Displyn to reset your password.');
     } catch (e: any) {
       toast.error('Could not send email', e.message);
     } finally {

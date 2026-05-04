@@ -1049,13 +1049,14 @@ export default function TodayScreen() {
             {weeklyStats.dailyData.length > 0 ? (
               weeklyStats.dailyData.map((day: any, i: number) => {
                 const barHeight = Math.max(day.rate, 8);
-                const isActive = day.rate >= 50;
+                const barOpacity = day.rate === 0 ? 0.15 : day.rate >= 50 ? 1 : 0.4;
                 return (
               <View key={i} style={s.barCol}>
                 <View style={s.barTrack}>
                   <View style={[s.barFill, {
                         height: `${barHeight}%`,
-                        backgroundColor: isActive ? theme.primary : (isDark ? '#2A2A38' : '#D5D5DD'),
+                        backgroundColor: theme.primary,
+                        opacity: barOpacity,
                   }]} />
                 </View>
                     <Text style={s.barLabel}>

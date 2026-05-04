@@ -96,6 +96,8 @@ function AppWithToast() {
         <Stack.Screen name="modal" />
         <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
         <Stack.Screen name="intro" />
+        <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+        <Stack.Screen name="--/auth/reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
       </Stack>
     </ToastProvider>
