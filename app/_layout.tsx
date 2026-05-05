@@ -59,6 +59,11 @@ function AppWithToast() {
       async (event, session) => {
         if (!navState?.key) return;
 
+        if (event === 'PASSWORD_RECOVERY') {
+          router.replace('/reset-password');
+          return;
+        }
+
         if (event === 'SIGNED_OUT' || !session) {
           router.replace('/auth');
           return;

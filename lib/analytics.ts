@@ -17,17 +17,16 @@ import { TAG_COLORS, TAG_ICONS, TASK_TAGS, TaskTag } from './types';
  * where the user completed at least one task.
  */
 export async function getStreak(userId: string): Promise<number> {
+  // Fetch all instances (not just completed) so AsyncStorage overlay works
   const { data, error } = await supabase
     .from('task_instances')
     .select('id, scheduled_date, completed_at, status')
-    .eq('user_id', userId)
-    .eq('status', 'completed')
-    .not('completed_at', 'is', null);
+    .eq('user_id', userId);
   if (error || !data || data.length === 0) return 0;
 
-  // Build a set of dates the user actually tapped "Done" (by completed_at date)
+  // Apply AsyncStorage overlay — locally completed tasks count for streak
   const localIdsStreak = await getLocalCompletedIds();
-  const streakEnriched = (data || []).map((i: any) => ({
+  const streakEnriched = data.map((i: any) => ({
     ...i,
     status: localIdsStreak.has(i.id) ? 'completed' : i.status,
     completed_at: localIdsStreak.has(i.id) && !i.completed_at
@@ -35,6 +34,7 @@ export async function getStreak(userId: string): Promise<number> {
       : i.completed_at,
   }));
 
+  // Build set of dates where at least one task was completed
   const completedDates = new Set<string>();
   streakEnriched.forEach((inst: any) => {
     if (inst.status === 'completed') {
